@@ -21,7 +21,7 @@ jobs:
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
           N8N_HOST: ${{ secrets.N8N_HOST }}
         run: |
-          curl -X POST "$N8N_HOST/rest/workflows" \
+          curl -X POST "$N8N_HOST/api/v1/workflows" \
             -H "Authorization: Bearer $N8N_API_KEY" \
             -H "Content-Type: application/json" \
             --data-binary @telegram_echo_workflow.json 
