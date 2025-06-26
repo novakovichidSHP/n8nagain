@@ -1,4 +1,5 @@
 {
+    "name": "Telegram Echo Workflow",
     "nodes": [
         {
             "parameters": {
@@ -55,5 +56,6 @@
                 ]
             ]
         }
-    }
+    },
+    "settings": {}
 }

@@ -13,15 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install curl
-        run: sudo apt-get update && sudo apt-get install -y curl
-
       - name: Deploy workflow to n8n
         env:
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
           N8N_HOST: ${{ secrets.N8N_HOST }}
         run: |
-          curl -X POST "$N8N_HOST/api/v1/workflows" \
-            -H "Authorization: Bearer $N8N_API_KEY" \
+          curl -X POST \
+            -H "X-N8N-API-KEY: $N8N_API_KEY" \
             -H "Content-Type: application/json" \
-            --data-binary @telegram_echo_workflow.json 
+            --data-binary @telegram_echo_workflow.json \
+            "$N8N_HOST/api/v1/workflows" 
