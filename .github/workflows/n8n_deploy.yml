@@ -18,8 +18,8 @@ jobs:
 
       - name: Deploy workflow to n8n
         env:
-          N8N_API_KEY: ${{ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NTJiYjEyZC0wOTU0LTRlMDktOWM4Ni05ZWUzN2NmODU5ZjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUwOTMxNjY5LCJleHAiOjE3NTM1MDI0MDB9.IKRQl3ZqZqz7AwgoiHwDjD4Ec3fOe1UmZwtmMiO4-n0 }}
-          N8N_HOST: ${{ https://n8n-latest-wpck.onrender.com/ }}
+          N8N_API_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NTJiYjEyZC0wOTU0LTRlMDktOWM4Ni05ZWUzN2NmODU5ZjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUwOTMxNjY5LCJleHAiOjE3NTM1MDI0MDB9.IKRQl3ZqZqz7AwgoiHwDjD4Ec3fOe1UmZwtmMiO4-n0
+          N8N_HOST: https://n8n-latest-wpck.onrender.com/
         run: |
           curl -X POST "$N8N_HOST/rest/workflows" \
             -H "Authorization: Bearer $N8N_API_KEY" \
