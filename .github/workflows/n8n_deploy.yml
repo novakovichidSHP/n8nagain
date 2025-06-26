@@ -1,4 +1,4 @@
-name: Deploy n8n Workflow
+name: Update or Create n8n Workflow
 
 on:
   push:
@@ -13,13 +13,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Deploy workflow to n8n
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Update or Create n8n workflow
         env:
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
           N8N_HOST: ${{ secrets.N8N_HOST }}
         run: |
-          curl -X POST \
-            -H "X-N8N-API-KEY: $N8N_API_KEY" \
-            -H "Content-Type: application/json" \
-            --data-binary @telegram_echo_workflow.json \
-            "$N8N_HOST/api/v1/workflows" 
+          python .github/workflows/n8n_update_or_create.py 

@@ -1,0 +1,137 @@
+<h2>Инструкция: Как обновлять или создавать воркфлоу в n8n через API и GitHub Actions</h2>
+
+<h3>1. Требования</h3>
+<ul>
+    <li>Должен быть создан API-ключ в n8n (Settings → API Keys).</li>
+    <li>Должен быть доступен endpoint n8n (например, <code>https://your-n8n-instance.com</code>).</li>
+    <li>Должен быть подготовлен JSON-файл с описанием воркфлоу (например, <code>my_workflow.json</code>), который
+        обязательно содержит поля <code>"name"</code>, <code>"nodes"</code>, <code>"connections"</code>,
+        <code>"settings"</code>.
+    </li>
+</ul>
+
+<h3>2. Пример на Python (универсальный: обновить или создать)</h3>
+<pre><code>import requests
+import json
+
+N8N_HOST = "&lt;YOUR_N8N_HOST&gt;"
+N8N_API_KEY = "&lt;YOUR_N8N_API_KEY&gt;"
+WORKFLOW_FILE = "my_workflow.json"
+
+with open(WORKFLOW_FILE, "r", encoding="utf-8") as f:
+    workflow_data = json.load(f)
+
+# 1. Получаем список всех воркфлоу
+response = requests.get(
+    f"{N8N_HOST}/api/v1/workflows",
+    headers={"X-N8N-API-KEY": N8N_API_KEY}
+)
+response.raise_for_status()
+workflows = response.json()["data"] if "data" in response.json() else response.json()
+
+# 2. Ищем воркфлоу с нужным именем
+target = next((w for w in workflows if w.get("name") == workflow_data["name"]), None)
+
+if target:
+    # 3. Если найден — обновляем (PATCH)
+    workflow_id = target["id"]
+    print(f"Workflow '{workflow_data['name']}' найден, обновляю...")
+    r = requests.patch(
+        f"{N8N_HOST}/rest/workflows/{workflow_id}",
+        headers={
+            "X-N8N-API-KEY": N8N_API_KEY,
+            "Content-Type": "application/json"
+        },
+        data=json.dumps(workflow_data)
+    )
+    print("PATCH status:", r.status_code)
+    print("Ответ:", r.text)
+else:
+    # 4. Если не найден — создаём новый (POST)
+    print(f"Workflow '{workflow_data['name']}' не найден, создаю новый...")
+    r = requests.post(
+        f"{N8N_HOST}/api/v1/workflows",
+        headers={
+            "X-N8N-API-KEY": N8N_API_KEY,
+            "Content-Type": "application/json"
+        },
+        data=json.dumps(workflow_data)
+    )
+    print("POST status:", r.status_code)
+    print("Ответ:", r.text)
+</code></pre>
+
+<h3>3. Пример для GitHub Actions (универсальный)</h3>
+<pre><code>name: Update or Create n8n Workflow
+
+on:
+  push:
+    paths:
+      - 'my_workflow.json'
+      - '.github/workflows/n8n_deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Update or Create n8n workflow
+        env:
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+          N8N_HOST: ${{ secrets.N8N_HOST }}
+        run: |
+          python <<EOF
+import requests
+import json
+import os
+N8N_HOST = os.environ["N8N_HOST"]
+N8N_API_KEY = os.environ["N8N_API_KEY"]
+WORKFLOW_FILE = "my_workflow.json"
+with open(WORKFLOW_FILE, "r", encoding="utf-8") as f:
+    workflow_data = json.load(f)
+response = requests.get(f"{N8N_HOST}/api/v1/workflows", headers={"X-N8N-API-KEY": N8N_API_KEY})
+workflows = response.json()["data"] if "data" in response.json() else response.json()
+target = next((w for w in workflows if w.get("name") == workflow_data["name"]), None)
+if target:
+    workflow_id = target["id"]
+    r = requests.patch(
+        f"{N8N_HOST}/rest/workflows/{workflow_id}",
+        headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
+        data=json.dumps(workflow_data)
+    )
+    print("PATCH status:", r.status_code)
+    print("Ответ:", r.text)
+else:
+    r = requests.post(
+        f"{N8N_HOST}/api/v1/workflows",
+        headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
+        data=json.dumps(workflow_data)
+    )
+    print("POST status:", r.status_code)
+    print("Ответ:", r.text)
+EOF
+</code></pre>
+
+<h3>4. Минимальный пример содержимого JSON-файла воркфлоу</h3>
+<pre><code>{
+  "name": "My Example Workflow",
+  "nodes": [
+    // ... список узлов ...
+  ],
+  "connections": {
+    // ... связи между узлами ...
+  },
+  "settings": {}
+}
+</code></pre>
+
+<p><b>Важно:</b><br>
+    Если API возвращает ошибку 400 с сообщением о недостающем поле — проверь, что все обязательные поля
+    присутствуют.<br>
+    Для PATCH нужен именно ID воркфлоу, который можно получить через GET <code>/api/v1/workflows</code>.
+</p>
