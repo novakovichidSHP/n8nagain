@@ -1,4 +1,4 @@
-name: Update or Create n8n Workflow (PUT)
+name: Update or Create n8n Workflow
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
-      - name: Update or Create n8n workflow (PUT)
+      - name: Update or Create n8n workflow
         env:
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
           N8N_HOST: ${{ secrets.N8N_HOST }}

@@ -1,93 +1,72 @@
-<h2>Инструкция: Как обновлять или создавать воркфлоу в n8n через API и GitHub Actions</h2>
+<h2>Инструкция: Автообновление или создание воркфлоу в n8n через API и GitHub Actions</h2>
 
 <h3>1. Требования</h3>
 <ul>
-    <li>Должен быть создан API-ключ в n8n (Settings → API Keys).</li>
-    <li>Должен быть доступен endpoint n8n (например, <code>https://your-n8n-instance.com</code>).</li>
-    <li>Должен быть подготовлен JSON-файл с описанием воркфлоу (например, <code>my_workflow.json</code>), который
-        обязательно содержит поля <code>"name"</code>, <code>"nodes"</code>, <code>"connections"</code>,
-        <code>"settings"</code>.
+    <li>Создан API-ключ в n8n (Settings → API Keys).</li>
+    <li>Публичный endpoint n8n (например, <code>https://your-n8n-host.com</code>).</li>
+    <li>JSON-файл с валидным воркфлоу (например, <code>my_workflow.json</code>), содержащий <code>name</code>,
+        <code>nodes</code>, <code>connections</code>, <code>settings</code>.
     </li>
 </ul>
 
-<h3>2. Пример на Python (обновить или создать)</h3>
-<p><b>Важно:</b> При обновлении воркфлоу через PUT нужно отправлять только разрешённые поля: <code>name</code>,
-    <code>nodes</code>, <code>connections</code>, <code>settings</code>, <code>staticData</code>.
-    <b>Поля <code>active</code> и <code>tags</code> нельзя отправлять ни при создании, ни при обновлении — для этого
-        есть отдельные endpoints.</b> Остальные поля
-    (например, <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>)
-    должны быть удалены из тела запроса.
-</p>
+<h3>2. Скрипт на Python</h3>
 <pre><code>import requests
 import json
 import os
 
-N8N_HOST = os.environ["N8N_HOST"]
+N8N_HOST = os.environ["N8N_HOST"].rstrip("/")
 N8N_API_KEY = os.environ["N8N_API_KEY"]
 WORKFLOW_FILE = "my_workflow.json"
 
 with open(WORKFLOW_FILE, "r", encoding="utf-8") as f:
     new_data = json.load(f)
 
-# Получаем список всех воркфлоу
-response = requests.get(
-    f"{N8N_HOST}/api/v1/workflows",
-    headers={"X-N8N-API-KEY": N8N_API_KEY}
-)
-workflows = response.json()["data"] if "data" in response.json() else response.json()
-target = next((w for w in workflows if w.get("name") == new_data["name"]), None)
-
 def filter_fields(obj):
     allowed = ["name", "nodes", "connections", "settings", "staticData"]
     return {k: v for k, v in obj.items() if k in allowed}
 
+headers = {
+    "X-N8N-API-KEY": N8N_API_KEY,
+    "Content-Type": "application/json"
+}
+
+# Получаем список всех воркфлоу
+resp = requests.get(f"{N8N_HOST}/api/v1/workflows", headers=headers)
+workflows = resp.json()["data"] if "data" in resp.json() else resp.json()
+target = next((w for w in workflows if w.get("name") == new_data["name"]), None)
+
 if target:
     workflow_id = target["id"]
+    print(f"Workflow '{new_data['name']}' найден, обновляю...")
+
     # Получаем полный объект воркфлоу
-    current = requests.get(
-        f"{N8N_HOST}/api/v1/workflows/{workflow_id}",
-        headers={"X-N8N-API-KEY": N8N_API_KEY}
-    ).json()
-    # Обновляем только нужные поля
+    current = requests.get(f"{N8N_HOST}/api/v1/workflows/{workflow_id}", headers=headers).json()
     current["nodes"] = new_data["nodes"]
     current["connections"] = new_data["connections"]
     current["settings"] = new_data.get("settings", {})
     current["name"] = new_data["name"]
-    # Оставляем только разрешённые поля
     payload = filter_fields(current)
-    print(f"Workflow '{new_data['name']}' найден, обновляю...")
+
     r = requests.put(
         f"{N8N_HOST}/api/v1/workflows/{workflow_id}",
-        headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
+        headers=headers,
         data=json.dumps(payload)
     )
     print(f"PUT /api/v1/workflows/{workflow_id} -> {r.status_code}")
-    print("Ответ сервера:")
     print(r.text)
 else:
     print(f"Workflow '{new_data['name']}' не найден, создаю новый...")
-    payload = filter_fields(new_data)
     r = requests.post(
         f"{N8N_HOST}/api/v1/workflows",
-        headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
-        data=json.dumps(payload)
+        headers=headers,
+        data=json.dumps(filter_fields(new_data))
     )
     print(f"POST /api/v1/workflows -> {r.status_code}")
-    print("Ответ сервера:")
     print(r.text)
+</code></pre>
 
-<p><b>Активация воркфлоу:</b><br>
-После создания или обновления, если нужно активировать воркфлоу, выполните отдельный запрос:<br>
-<code>POST /api/v1/workflows/{id}/activate</code>
-</p>
-<p><b>Обновление тегов воркфлоу:</b><br>
-Для обновления тегов используйте отдельный запрос:<br>
-<code>PUT /api/v1/workflows/{id}/tags</code> с телом вида <code>[{"id": "tagId1"}, {"id": "tagId2"}]</code>
-</p>
-</pre>
-
-<h3>3. Пример для GitHub Actions (PUT/POST)</h3>
-<pre><code>name: Update or Create n8n Workflow (PUT)
+<h3>3. GitHub Actions</h3>
+<pre><code>name: Update or Create n8n Workflow
 
 on:
   workflow_dispatch:
@@ -106,7 +85,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
-      - name: Update or Create n8n workflow (PUT)
+      - name: Deploy workflow to n8n
         env:
           N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
           N8N_HOST: ${{ secrets.N8N_HOST }}
@@ -114,20 +93,33 @@ jobs:
           python n8n_update_or_create_flow.py
 </code></pre>
 
-<h3>4. Минимальный пример содержимого JSON-файла воркфлоу</h3>
+<h3>4. Пример JSON-файла воркфлоу</h3>
 <pre><code>{
   "name": "My Example Workflow",
   "nodes": [
-    // ... список узлов ...
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { hello: 'world' } }];"
+      },
+      "name": "Start",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [240, 300]
+    }
   ],
-  "connections": {
-    // ... связи между узлами ...
-  },
+  "connections": {},
   "settings": {}
 }
 </code></pre>
 
-<p><b>Важно:</b><br>
-    Если API возвращает ошибку 400 с сообщением о недостающем поле — проверь, что все обязательные поля
-    присутствуют.
+<p><strong>Важно:</strong> Все поля должны быть валидны. Комментарии в JSON недопустимы. Проверяй содержимое перед пушем
+    в git.</p>
+
+<p><b>Активация воркфлоу:</b><br>
+    Если нужно активировать воркфлоу после создания/обновления, вызови:<br>
+    <code>POST /api/v1/workflows/{id}/activate</code>
+</p>
+<p><b>Обновление тегов воркфлоу:</b><br>
+    Для обновления тегов используй:<br>
+    <code>PUT /api/v1/workflows/{id}/tags</code> с телом <code>[{"id": "tagId1"}, {"id": "tagId2"}]</code>
 </p>
