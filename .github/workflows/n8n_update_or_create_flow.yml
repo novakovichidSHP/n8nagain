@@ -1,0 +1,25 @@
+name: Update or Create n8n Workflow (PUT)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'telegram_echo_workflow.json'
+      - '.github/workflows/n8n_update_or_create_flow.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Update or Create n8n workflow (PUT)
+        env:
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+          N8N_HOST: ${{ secrets.N8N_HOST }}
+        run: |
+          python n8n_update_or_create_flow.py 
