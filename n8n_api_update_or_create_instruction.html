@@ -11,6 +11,13 @@
 </ul>
 
 <h3>2. Пример на Python (обновить или создать)</h3>
+<p><b>Важно:</b> При обновлении воркфлоу через PUT нужно отправлять только разрешённые поля: <code>name</code>,
+    <code>nodes</code>, <code>connections</code>, <code>settings</code>, <code>staticData</code>.
+    <b>Поля <code>active</code> и <code>tags</code> нельзя отправлять ни при создании, ни при обновлении — для этого
+        есть отдельные endpoints.</b> Остальные поля
+    (например, <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>)
+    должны быть удалены из тела запроса.
+</p>
 <pre><code>import requests
 import json
 import os
@@ -20,7 +27,7 @@ N8N_API_KEY = os.environ["N8N_API_KEY"]
 WORKFLOW_FILE = "my_workflow.json"
 
 with open(WORKFLOW_FILE, "r", encoding="utf-8") as f:
-    workflow_data = json.load(f)
+    new_data = json.load(f)
 
 # Получаем список всех воркфлоу
 response = requests.get(
@@ -28,30 +35,56 @@ response = requests.get(
     headers={"X-N8N-API-KEY": N8N_API_KEY}
 )
 workflows = response.json()["data"] if "data" in response.json() else response.json()
-target = next((w for w in workflows if w.get("name") == workflow_data["name"]), None)
+target = next((w for w in workflows if w.get("name") == new_data["name"]), None)
+
+def filter_fields(obj):
+    allowed = ["name", "nodes", "connections", "settings", "staticData"]
+    return {k: v for k, v in obj.items() if k in allowed}
 
 if target:
     workflow_id = target["id"]
-    print(f"Workflow '{workflow_data['name']}' найден, обновляю...")
+    # Получаем полный объект воркфлоу
+    current = requests.get(
+        f"{N8N_HOST}/api/v1/workflows/{workflow_id}",
+        headers={"X-N8N-API-KEY": N8N_API_KEY}
+    ).json()
+    # Обновляем только нужные поля
+    current["nodes"] = new_data["nodes"]
+    current["connections"] = new_data["connections"]
+    current["settings"] = new_data.get("settings", {})
+    current["name"] = new_data["name"]
+    # Оставляем только разрешённые поля
+    payload = filter_fields(current)
+    print(f"Workflow '{new_data['name']}' найден, обновляю...")
     r = requests.put(
         f"{N8N_HOST}/api/v1/workflows/{workflow_id}",
         headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
-        data=json.dumps(workflow_data)
+        data=json.dumps(payload)
     )
     print(f"PUT /api/v1/workflows/{workflow_id} -> {r.status_code}")
     print("Ответ сервера:")
     print(r.text)
 else:
-    print(f"Workflow '{workflow_data['name']}' не найден, создаю новый...")
+    print(f"Workflow '{new_data['name']}' не найден, создаю новый...")
+    payload = filter_fields(new_data)
     r = requests.post(
         f"{N8N_HOST}/api/v1/workflows",
         headers={"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"},
-        data=json.dumps(workflow_data)
+        data=json.dumps(payload)
     )
     print(f"POST /api/v1/workflows -> {r.status_code}")
     print("Ответ сервера:")
     print(r.text)
-</code></pre>
+
+<p><b>Активация воркфлоу:</b><br>
+После создания или обновления, если нужно активировать воркфлоу, выполните отдельный запрос:<br>
+<code>POST /api/v1/workflows/{id}/activate</code>
+</p>
+<p><b>Обновление тегов воркфлоу:</b><br>
+Для обновления тегов используйте отдельный запрос:<br>
+<code>PUT /api/v1/workflows/{id}/tags</code> с телом вида <code>[{"id": "tagId1"}, {"id": "tagId2"}]</code>
+</p>
+</pre>
 
 <h3>3. Пример для GitHub Actions (PUT/POST)</h3>
 <pre><code>name: Update or Create n8n Workflow (PUT)
