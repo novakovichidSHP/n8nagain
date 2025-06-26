@@ -1,0 +1,27 @@
+name: Deploy n8n Workflow
+
+on:
+  push:
+    paths:
+      - 'telegram_echo_workflow.json'
+      - '.github/workflows/n8n_deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install curl
+        run: sudo apt-get update && sudo apt-get install -y curl
+
+      - name: Deploy workflow to n8n
+        env:
+          N8N_API_KEY: ${{ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0NTJiYjEyZC0wOTU0LTRlMDktOWM4Ni05ZWUzN2NmODU5ZjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUwOTMxNjY5LCJleHAiOjE3NTM1MDI0MDB9.IKRQl3ZqZqz7AwgoiHwDjD4Ec3fOe1UmZwtmMiO4-n0 }}
+          N8N_HOST: ${{ https://n8n-latest-wpck.onrender.com/ }}
+        run: |
+          curl -X POST "$N8N_HOST/rest/workflows" \
+            -H "Authorization: Bearer $N8N_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @telegram_echo_workflow.json 
