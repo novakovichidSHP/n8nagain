@@ -25,7 +25,7 @@
         {
             "parameters": {
                 "chatId": "={{$json[\"message\"][\"chat\"][\"id\"]}}",
-                "text": "Спасибо за ваше сообщение!"
+                "text": "Спасибо за ваше сообщениее!"
             },
             "id": "2",
             "name": "Send Message",
